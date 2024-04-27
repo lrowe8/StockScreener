@@ -1,25 +1,13 @@
 import datetime
 import yfinance as yf
 import dash
-import dash_core_components as dcc
-import dash_html_components as html
-from dash.dependencies import Input, Output
+from dash import dcc
+#import dash_core_components as dcc
+#import dash_html_components as html
+from dash import html
+import csv
 
-app = dash.Dash()
-app.title = "Stock Visualization"
-
-app.layout = html.Div(children=[
-    html.H1("Stock Visualization Dashboard"),
-    html.H4("Please enter the stock name"),
-    dcc.Input(id='input', value='INTC', type='text'),
-    html.Div(id='output-graph')
-])
-
-@app.callback(
-    Output(component_id='output-graph', component_property='children'),
-    [Input(component_id='input', component_property='value')]
-)
-def update_graph(input_data):
+def update_graph(input_data:str):
     # Set the timespan
     start = datetime.datetime(2010, 1, 1)
     end = datetime.datetime.now()
@@ -29,33 +17,23 @@ def update_graph(input_data):
         df = yf.download(input_data, start, end)
 
         # Get the rolling averages
-        df['5Day'] = df['Close'].rolling(5).mean()
-        df['40Day'] = df['Close'].rolling(40).mean()
-        df['Converge'] = (df['40Day'] - df['5Day']).abs()
+        df['20Day'] = df['Close'].rolling(20).mean()
+        df['50Day'] = df['Close'].rolling(50).mean()
+        df['200Day'] = df['Close'].rolling(200).mean()
 
         # Remove data older than 90 days
         df = df[df.index >= (datetime.datetime.now() - datetime.timedelta(days=90))]
 
-        # Convergance check
-        converge = df['Converge'].iloc[-4:]
-        increasing = all([v >= converge.iloc[i - 1] for i, v in enumerate(converge.iloc[1:], 1)])
-        decreasing = all([converge.iloc[i - 1] >= v for i, v in enumerate(converge.iloc[1:], 1)])
-
-        color = 'black'
-        if increasing and not decreasing:
-            color = 'MediumSeaGreen'
-        elif decreasing and not increasing:
-            color = 'Tomato'
-
         # Create the graph
         graph = dcc.Graph(
-            id='example', 
+            id=f'graph-{input_data}', 
             figure = 
             {
                 'data':[
                     {'x':df.index, 'y':df.Close, 'type':'line', 'name':input_data},
-                    {'x':df.index, 'y':df['5Day'], 'type':'line', 'name':'5 Day Avg'},
-                    {'x':df.index, 'y':df['40Day'], 'type':'line', 'name':'40 Day Avg'}
+                    {'x':df.index, 'y':df['20Day'], 'type':'line', 'name':'Short (20 Day)'},
+                    {'x':df.index, 'y':df['50Day'], 'type':'line', 'name':'Medium (50 Day)'},
+                    {'x':df.index, 'y':df['200Day'], 'type':'line', 'name':'Long (200 Day)'}
                     ],
                 'layout':{
                     'title':input_data
@@ -63,7 +41,7 @@ def update_graph(input_data):
             },
             style = 
             {
-                'border':f'2px {color} solid'
+                'border':'2px black solid',
             }
         )
     
@@ -73,4 +51,21 @@ def update_graph(input_data):
     return graph
 
 if __name__ == '__main__':
+    rows = []
+    with open('current_stocks.csv') as csvfile:
+        current_stocks = csv.DictReader(csvfile)
+        
+        for row in current_stocks:
+            rows.append(row)
+
+    app = dash.Dash()
+    app.title = "Stock Visualization"
+
+    app.layout = html.Div(children=[
+        html.H1("Stock Visualization Dashboard"),
+    ])
+
+    for row in rows:
+        app.layout.children += [html.Div(id=f'{row["Symbol"]}-graph', style={'padding-bottom': '20px'}), update_graph(row["Symbol"])]    
+
     app.run_server()
