@@ -2,8 +2,6 @@ import datetime
 import yfinance as yf
 import dash
 from dash import dcc
-#import dash_core_components as dcc
-#import dash_html_components as html
 from dash import html
 import csv
 
@@ -69,3 +67,5 @@ if __name__ == '__main__':
         app.layout.children += [html.Div(id=f'{row["Symbol"]}-graph', style={'padding-bottom': '20px'}), update_graph(row["Symbol"])]    
 
     app.run_server()
+
+    # app.layout = update_graph
