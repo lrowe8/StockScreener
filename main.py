@@ -4,11 +4,18 @@ import dash
 from dash import dcc
 from dash import html
 import csv
+import requests
+import json
+
+headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+    }
 
 def update_graph(input_data:str):
     # Set the timespan
-    start = datetime.datetime(2010, 1, 1)
+    # start = datetime.datetime(2010, 1, 1)
     end = datetime.datetime.now()
+    start = end - datetime.timedelta(days=(365 * 2))
 
     try:
         # Get stock data from yahoo
@@ -48,6 +55,49 @@ def update_graph(input_data:str):
 
     return graph
 
+def get_sentiment(input_data:str):
+    date_str = datetime.datetime.now(datetime.UTC).isoformat().split('.')[0] + 'Z'
+    url = f'https://api-gw-prd.stocktwits.com/sentiment-api/{input_data}/detail?end={date_str}'
+
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        json_result = json.loads(response.text)
+        message_volume = json_result['data']['messageVolume']['24h']['label'].replace('_', ' ')
+        sentiment = json_result['data']['sentiment']['24h']['label'].replace('_', ' ')
+
+        results = html.Div(id=f'{input_data}-twits', children=[
+            html.H4(f'Message Volume: {message_volume}'),
+            html.H4(f'Sentiment: {sentiment}')
+        ])
+    else:
+        results = html.Div("Error retrieving sentiment data.")
+
+    return results
+
+def create_analyst(input_data:str):
+    url = f'https://production.dataviz.cnn.io/quote/forecast/{input_data}'
+
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        json_result = json.loads(response.text)
+        current_stock_price = json_result[0]['current_stock_price']
+        high_color = 'green' if json_result[0]['high_target_price'] >= current_stock_price else 'tomato'
+        median_color = 'green' if json_result[0]['median_target_price'] >= current_stock_price else 'tomato'
+        low_color = 'green' if json_result[0]['low_target_price'] >= current_stock_price else 'tomato'
+
+        results = html.Div(id=f'{input_data}-cnn', children=[
+            html.H4(f'High: ${json_result[0]['high_target_price']:.2f} {json_result[0]['percent_high_price']:.2f}%', style={'color': high_color}),
+            html.H4(f'Median: ${json_result[0]['median_target_price']:.2f} {json_result[0]['percent_median_price']:.2f}%', style={'color': median_color}),
+            html.H4(f'Low: ${json_result[0]['low_target_price']:.2f} {json_result[0]['percent_low_price']:.2f}%', style={'color': low_color}),
+        ])
+    else:
+        results = html.Div("Error retrieving analyst data.")
+
+    return results
+
+
 if __name__ == '__main__':
     rows = []
     with open('current_stocks.csv') as csvfile:
@@ -64,7 +114,11 @@ if __name__ == '__main__':
     ])
 
     for row in rows:
-        app.layout.children += [html.Div(id=f'{row["Symbol"]}-graph', style={'padding-bottom': '20px'}), update_graph(row["Symbol"])]    
+        app.layout.children += [html.Div(id=f'{row["Symbol"]}-graph', style={'padding-bottom': '20px'}), 
+                                get_sentiment(row["Symbol"]),
+                                create_analyst(row["Symbol"]),
+                                update_graph(row["Symbol"]),
+                                ]    
 
     app.run_server()
 
