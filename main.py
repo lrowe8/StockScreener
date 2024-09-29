@@ -73,6 +73,41 @@ def update_graph(symbol:str, date_purchased:datetime, cost_per_share:float):
 
     return graph
 
+def get_tip_ranks(input_data: str):
+    url = f'https://widgets.tipranks.com/api/widgets/stockAnalysisOverview/?tickers={input_data}'
+
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        json_result = json.loads(response.text)
+
+        if json_result:
+            smart_score = json_result[0]['smartScore']
+            investor_change_30_day = json_result[0]['investorHoldingChangeLast30Days']
+            investor_change_7_day = json_result[0]['investorHoldingChangeLast7Days']
+            fundamentals_return_on_equity = json_result[0]['fundamentalsReturnOnEquity']
+            fundamentals_asset_growth = json_result[0]['fundamentalsAssetGrowth']
+            color = 'green'
+
+            if smart_score < 4:
+                color = 'tomato'
+            elif smart_score < 7:
+                color = 'orange'
+
+            results = html.Div(id=f'{input_data}-tip', children=[
+                html.H4(f'Smart Score: {smart_score}', style={'color': color}),
+                html.H4(f'Investor Holdings 7 Day Change: {investor_change_7_day}'),
+                html.H4(f'Investor Holdings 30 Day Change: {investor_change_30_day}'),
+                html.H4(f'Return on Equity: {fundamentals_return_on_equity}'),
+                html.H4(f'Asset Growth: {fundamentals_asset_growth}'),
+            ])
+        else:
+            results = html.Div("No tip ranks data.")
+    else:
+        results = html.Div("Error retrieving tip ranks data.")
+
+    return results
+
 def get_sentiment(input_data:str):
     date_str = datetime.datetime.now(datetime.UTC).isoformat().split('.')[0] + 'Z'
     url = f'https://api-gw-prd.stocktwits.com/sentiment-api/{input_data}/detail?end={date_str}'
@@ -118,6 +153,7 @@ def create_analyst(input_data:str):
 
 if __name__ == '__main__':
     stocks_xlsx = pd.read_excel('current-stocks.xlsx')
+    # stocks_xlsx = pd.read_excel('stock-watchlist.xlsx')
 
     app = dash.Dash()
     app.title = "Stock Visualization"
@@ -128,8 +164,10 @@ if __name__ == '__main__':
 
     for _, record in stocks_xlsx.iterrows():
         app.layout.children += [html.Div(id=f'{record["Symbol"]}-graph', style={'padding-bottom': '20px'}), 
+                                html.H3(f'{record["Symbol"]}'),
                                 get_sentiment(record["Symbol"]),
                                 create_analyst(record["Symbol"]),
+                                get_tip_ranks(record["Symbol"]),
                                 update_graph(record["Symbol"], record["Date Purchased"], record["Cost Per Share"]),
                                 ]    
 
