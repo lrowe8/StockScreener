@@ -16,6 +16,7 @@ def update_graph(symbol:str, date_purchased:datetime, cost_per_share:float):
     # Set the timespan
     end = datetime.datetime.now()
     start = end - datetime.timedelta(days=(200 * 2))
+    sale_string = "Gain"
 
     try:
         # Get stock data from yahoo
@@ -41,6 +42,7 @@ def update_graph(symbol:str, date_purchased:datetime, cost_per_share:float):
             sale_price = (max_price - (max_price * .03)).item()
         else:
             sale_price = losing_sale_price
+            sale_string = "Loss"
         
         df['SalePrice', symbol] = sale_price
 
@@ -57,7 +59,7 @@ def update_graph(symbol:str, date_purchased:datetime, cost_per_share:float):
                     {'x':df.index, 'y':df['20Day', symbol], 'type':'line', 'name':'Short (20 Day)'},
                     {'x':df.index, 'y':df['50Day', symbol], 'type':'line', 'name':'Medium (50 Day)'},
                     {'x':df.index, 'y':df['200Day', symbol], 'type':'line', 'name':'Long (200 Day)'},
-                    {'x':df.index, 'y':df['SalePrice', symbol], 'type':'line', 'name':'Sale Price'}
+                    {'x':df.index, 'y':df['SalePrice', symbol], 'type':'line', 'name':f'{sale_string} Sale Price'}
                     ],
                 'layout':{
                     'title':symbol
